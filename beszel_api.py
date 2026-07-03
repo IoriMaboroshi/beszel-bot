@@ -35,7 +35,6 @@ class BeszelAPI:
         ) as resp:
             data = await resp.json()
             self._token = data["token"]
-            # Token expires in 7200s by default, refresh at 6000s
             self._token_expires = now + 6000
             return self._token
 
@@ -71,4 +70,29 @@ class BeszelAPI:
             "GET",
             f"/api/collections/stats/records?filter=system='{system_id}'&sort=-created&perPage=200",
         )
+        return data.get("items", [])
+
+    async def get_container_stats(
+        self, system_id: str = None, stat_type: str = "1m", per_page: int = 500
+    ) -> list[dict]:
+        """Get container historical statistics from container_stats collection.
+
+        Each record has: {type, system, created, stats: [{n, c, m, b:[in,out]}]}
+        """
+        filters = [f"type='{stat_type}'"]
+        if system_id:
+            filters.append(f"system='{system_id}'")
+        filter_str = " && ".join(filters)
+        data = await self._request(
+            "GET",
+            f"/api/collections/container_stats/records?filter={filter_str}&sort=-created&perPage={per_page}",
+        )
+        return data.get("items", [])
+
+    async def get_containers(self, system_id: str = None) -> list[dict]:
+        """Get Docker containers, optionally filtered by system."""
+        url = "/api/collections/containers/records?perPage=100"
+        if system_id:
+            url += f"&filter=system='{system_id}'"
+        data = await self._request("GET", url)
         return data.get("items", [])
